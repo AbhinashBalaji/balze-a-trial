@@ -2,10 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 import datetime
+import secrets
 
 from app.database import get_db
 from app.auth import get_current_admin_user
 from app import models, schemas
+from firebase_admin import auth as firebase_auth
+from app.email_utils import send_credentials_email, send_invitation_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -15,11 +18,17 @@ def get_users(db: Session = Depends(get_db), current_user: models.User = Depends
     # Map to the format expected by frontend
     result = []
     for u in users:
+        role_names = [ur.role.role_name for ur in u.roles if ur.role]
+        role_display = role_names[0] if role_names else "User"
+        
         result.append({
             "id": u.id,
             "name": u.full_name or "Unknown",
             "email": u.email,
-            "role": u.role,
+            "role": role_display,
+            "role_id": u.roles[0].role_id if u.roles else None,
+            "department": u.department.department_name if u.department else "None",
+            "department_id": u.department_id,
             "status": u.status,
             "joined_date": u.created_at.isoformat()
         })
@@ -28,18 +37,27 @@ def get_users(db: Session = Depends(get_db), current_user: models.User = Depends
 
 @router.post("/")
 def create_user(payload: schemas.UserCreateAdmin, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_admin_user)):
-    from app.auth import hash_password
-    from app.email_utils import send_credentials_email
-    
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, detail="User already exists in db")
     
+    try:
+        firebase_auth.create_user(
+            email=payload.email,
+            password=payload.password,
+            display_name=payload.full_name
+        )
+    except Exception as e:
+        if "already exists" in str(e).lower() or "email-already-exists" in str(e):
+            pass # ignore if they already exist in firebase
+        else:
+            raise HTTPException(status_code=400, detail=f"Firebase Error: {str(e)}")
+            
     new_user = models.User(
         email=payload.email,
         full_name=payload.full_name,
-        hashed_password=hash_password(payload.password),
-        role=payload.role,
+        hashed_password="FIREBASE_AUTH",
+        department_id=payload.department_id,
         status="Active",
         must_change_password=True
     )
@@ -47,23 +65,21 @@ def create_user(payload: schemas.UserCreateAdmin, db: Session = Depends(get_db),
     db.commit()
     db.refresh(new_user)
     
+    user_role = models.UserRole(user_id=new_user.id, role_id=payload.role_id)
+    db.add(user_role)
+    db.commit()
+    
     login_link = "http://localhost:5173/login"
     try:
         send_credentials_email(new_user.email, payload.password, login_link)
     except Exception as e:
         print(f"Failed to send credentials email: {e}")
-        # Don't fail the user creation if email fails, but you could log it
         
     return {"message": "User created successfully"}
 
 
 @router.post("/invite")
 def invite_user(invite: schemas.InviteRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_admin_user)):
-    from app.email_utils import send_invitation_email
-    from app.auth import hash_password
-    import secrets
-    import datetime
-    
     existing = db.query(models.User).filter(models.User.email == invite.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
@@ -72,16 +88,31 @@ def invite_user(invite: schemas.InviteRequest, db: Session = Depends(get_db), cu
     token = secrets.token_urlsafe(32)
     expires = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     
+    try:
+        firebase_auth.create_user(
+            email=invite.email,
+            password=temp_pass,
+            display_name=invite.full_name
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower() and "email-already-exists" not in str(e):
+            raise HTTPException(status_code=400, detail=f"Firebase Error: {str(e)}")
+
     pending_user = models.User(
         email=invite.email,
         full_name=invite.full_name,
-        hashed_password=hash_password(temp_pass),
-        role=invite.role,
+        hashed_password="FIREBASE_AUTH",
+        department_id=invite.department_id,
         status="Pending",
         invite_token=token,
         invite_token_expires=expires
     )
     db.add(pending_user)
+    db.commit()
+    db.refresh(pending_user)
+
+    user_role = models.UserRole(user_id=pending_user.id, role_id=invite.role_id)
+    db.add(user_role)
     db.commit()
 
     activation_link = f"http://localhost:5173/accept-invite?token={token}"
@@ -98,7 +129,6 @@ def invite_user(invite: schemas.InviteRequest, db: Session = Depends(get_db), cu
 
 @router.get("/invite/verify")
 def verify_invite(token: str, db: Session = Depends(get_db)):
-    import datetime
     user = db.query(models.User).filter(
         models.User.invite_token == token,
         models.User.status == "Pending"
@@ -114,9 +144,6 @@ def verify_invite(token: str, db: Session = Depends(get_db)):
 
 @router.post("/invite/accept")
 def accept_invite(payload: schemas.AcceptInviteRequest, db: Session = Depends(get_db)):
-    import datetime
-    from app.auth import hash_password
-    
     user = db.query(models.User).filter(
         models.User.invite_token == payload.token,
         models.User.status == "Pending"
@@ -127,7 +154,12 @@ def accept_invite(payload: schemas.AcceptInviteRequest, db: Session = Depends(ge
     if user.invite_token_expires and user.invite_token_expires < datetime.datetime.utcnow():
         raise HTTPException(status_code=400, detail="Token has expired")
         
-    user.hashed_password = hash_password(payload.password)
+    try:
+        fb_user = firebase_auth.get_user_by_email(user.email)
+        firebase_auth.update_user(fb_user.uid, password=payload.password)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Firebase Error: {str(e)}")
+        
     user.status = "Active"
     user.invite_token = None
     user.invite_token_expires = None
@@ -146,6 +178,13 @@ def update_status(user_id: int, payload: schemas.UserUpdateStatus, db: Session =
     
     user.status = payload.status
     db.commit()
+    
+    try:
+        fb_user = firebase_auth.get_user_by_email(user.email)
+        firebase_auth.update_user(fb_user.uid, disabled=(payload.status != "Active"))
+    except:
+        pass
+        
     return {"message": "Status updated"}
 
 
@@ -157,19 +196,25 @@ def update_role(user_id: int, payload: schemas.UserUpdateRole, db: Session = Dep
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot change your own role")
 
-    user.role = payload.role
+    db.query(models.UserRole).filter(models.UserRole.user_id == user_id).delete()
+    new_role = models.UserRole(user_id=user_id, role_id=payload.role_id)
+    db.add(new_role)
     db.commit()
     return {"message": "Role updated"}
 
 
 @router.put("/{user_id}/reset-password")
 def reset_password(user_id: int, payload: schemas.UserResetPassword, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_admin_user)):
-    from app.auth import hash_password
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.hashed_password = hash_password(payload.password)
+    try:
+        fb_user = firebase_auth.get_user_by_email(user.email)
+        firebase_auth.update_user(fb_user.uid, password=payload.password)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Firebase Error: {str(e)}")
+        
     db.commit()
     return {"message": "Password reset successfully"}
 
@@ -180,6 +225,12 @@ def edit_user(user_id: int, payload: schemas.UserEdit, db: Session = Depends(get
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    try:
+        fb_user = firebase_auth.get_user_by_email(user.email)
+        firebase_auth.update_user(fb_user.uid, email=payload.email, display_name=payload.full_name)
+    except:
+        pass
+        
     user.full_name = payload.full_name
     user.email = payload.email
     db.commit()
@@ -194,6 +245,12 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: model
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     
+    try:
+        fb_user = firebase_auth.get_user_by_email(user.email)
+        firebase_auth.delete_user(fb_user.uid)
+    except:
+        pass
+        
     db.delete(user)
     db.commit()
     return {"message": "User deleted"}

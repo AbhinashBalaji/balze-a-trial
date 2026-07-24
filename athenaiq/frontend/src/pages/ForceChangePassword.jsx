@@ -27,19 +27,21 @@ export default function ForceChangePassword() {
     setLoading(true)
     setError('')
     try {
-      await api.post('/auth/change-password', { new_password: password })
+      const { updatePassword } = await import('firebase/auth')
+      const { auth: firebaseAuth } = await import('../firebase')
+      if (firebaseAuth.currentUser) {
+        await updatePassword(firebaseAuth.currentUser, password)
+      }
+      
+      await api.post('/auth/change-password') // We'll modify backend to just set must_change_password = False
       setSuccess(true)
       
       // Update local context user object so ProtectedRoute allows them in
-      const updatedUser = { ...user, must_change_password: false }
-      // This requires the context to have a way to update the user, 
-      // but a simple page reload or re-fetching auth/me works too.
-      // Since login sets the user, we might need to just reload.
       setTimeout(() => {
         window.location.href = '/dashboard'
       }, 1500)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update password.')
+      setError(err.message || err.response?.data?.detail || 'Failed to update password.')
       setLoading(false)
     }
   }

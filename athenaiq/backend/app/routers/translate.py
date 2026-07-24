@@ -17,8 +17,15 @@ def translate(
     current_user: models.User = Depends(get_current_user),
 ):
     f = db.query(models.FileDoc).filter(models.FileDoc.id == file_id).first()
-    if not f or f.owner_id != current_user.id:
+    if not f:
         raise HTTPException(status_code=404, detail="File not found")
+    if current_user.role != "Admin" and f.owner_id != current_user.id:
+        share = db.query(models.FileShare).filter(
+            models.FileShare.file_id == file_id,
+            models.FileShare.user_id == current_user.id
+        ).first()
+        if not share:
+            raise HTTPException(status_code=403, detail="Not authorized to access this file")
 
     text = (f.text_content or "")[:15000]
     if not text.strip():

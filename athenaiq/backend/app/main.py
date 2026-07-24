@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app import models  # noqa: F401 - ensures models are registered on Base
-from app.routers import auth, files, search, chat, summarize, translate, knowledge_graph, compare, users
+from app.routers import auth, files, search, chat, summarize, translate, knowledge_graph, compare, users, rbac
 
 Base.metadata.create_all(bind=engine)
 
@@ -11,7 +11,7 @@ app = FastAPI(title="AthenaIQ API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,6 +26,24 @@ app.include_router(translate.router)
 app.include_router(knowledge_graph.router)
 app.include_router(compare.router)
 app.include_router(users.router)
+app.include_router(rbac.router)
+
+
+@app.on_event("startup")
+def startup_event():
+    """Pre-load the embedding model so the first search is instant and seed db."""
+    try:
+        from app.services.embeddings import warmup
+        warmup()
+        print("SUCCESS: Embedding model warmed up.")
+    except Exception as e:
+        print(f"WARNING: Model warmup failed (non-fatal): {e}")
+        
+    try:
+        import seed_rbac
+        seed_rbac.seed_rbac()
+    except Exception as e:
+        print(f"WARNING: DB Seed failed: {e}")
 
 
 @app.get("/")

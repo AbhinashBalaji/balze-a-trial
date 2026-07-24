@@ -13,10 +13,23 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class OTPLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+class ResendOTPRequest(BaseModel):
+    email: EmailStr
+
 class InviteRequest(BaseModel):
     email: EmailStr
     full_name: str
-    role: str
+    role_id: int
+    department_id: Optional[int] = None
+
 
 class AcceptInviteRequest(BaseModel):
     token: str
@@ -30,13 +43,15 @@ class UserCreateAdmin(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     password: str
-    role: str = "User"
+    role_id: int
+    department_id: Optional[int] = None
+
 
 class UserUpdateStatus(BaseModel):
     status: str
 
 class UserUpdateRole(BaseModel):
-    role: str
+    role_id: int
 
 class UserEdit(BaseModel):
     full_name: str
@@ -45,11 +60,48 @@ class UserEdit(BaseModel):
 class UserResetPassword(BaseModel):
     password: str
 
+class DepartmentOut(BaseModel):
+    id: int
+    department_name: str
+
+    class Config:
+        from_attributes = True
+
+class PermissionOut(BaseModel):
+    id: int
+    permission_name: str
+
+    class Config:
+        from_attributes = True
+
+class RolePermissionOut(BaseModel):
+    permission: PermissionOut
+
+    class Config:
+        from_attributes = True
+
+class RoleOut(BaseModel):
+    id: int
+    role_name: str
+    description: Optional[str] = None
+    permissions: List[RolePermissionOut] = []
+
+    class Config:
+        from_attributes = True
+
+class UserRoleOut(BaseModel):
+    role: RoleOut
+
+    class Config:
+        from_attributes = True
+
 class UserOut(BaseModel):
     id: int
     email: str
     full_name: Optional[str] = None
     role: str = "User"
+    roles: List[UserRoleOut] = []
+    department: Optional[DepartmentOut] = None
     status: str = "Active"
     must_change_password: bool = False
     created_at: datetime.datetime
@@ -139,6 +191,9 @@ class SearchResultItem(BaseModel):
 class SearchResponse(BaseModel):
     answer: Optional[str] = None
     results: List[SearchResultItem]
+    search_mode: str = "hybrid"
+    total_chunks_scanned: int = 0
+
 
 
 class KnowledgeGraphNode(BaseModel):

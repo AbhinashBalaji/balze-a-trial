@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     smtp_port: str | None = None
     smtp_username: str | None = None
     smtp_password: str | None = None
+    
+    email_provider: str = os.getenv("EMAIL_PROVIDER", "smtp")
+    resend_api_key: str | None = os.getenv("RESEND_API_KEY")
+    email_from: str = os.getenv("EMAIL_FROM", "Security Team <security@athenaiq.com>")
+    firebase_api_key: str | None = os.getenv("FIREBASE_API_KEY")
 
     class Config:
         env_file = ".env"

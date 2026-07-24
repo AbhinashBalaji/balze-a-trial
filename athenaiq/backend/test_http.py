@@ -3,9 +3,9 @@ import os
 import requests
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from app.auth import create_access_token
 
-access_token = create_access_token(data={"sub": "1"})
+# You need a valid Firebase token here now.
+access_token = "PUT_FIREBASE_TOKEN_HERE"
 
 headers = {
     "Authorization": f"Bearer {access_token}"

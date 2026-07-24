@@ -7,6 +7,7 @@ import json
 
 def test():
     db = SessionLocal()
+    import time
     try:
         user = db.query(models.User).first()
         if not user:
@@ -15,31 +16,29 @@ def test():
         print(f"Testing with user: {user.email}")
         
         q = "test query"
+        t0 = time.time()
         print("Embedding query...")
         query_vec = emb.embed_query(q)
-        print(f"Query embedded, dim: {len(query_vec)}")
         
+        # Test new deferred loading
+        from sqlalchemy.orm import defer
         chunks_query = (
             db.query(models.Chunk, models.FileDoc)
             .join(models.FileDoc, models.Chunk.file_id == models.FileDoc.id)
             .filter(models.FileDoc.owner_id == user.id)
+            .options(defer(models.Chunk.embedding))
         )
         chunks = chunks_query.all()
-        print(f"Found {len(chunks)} chunks for user")
+        print(f"Found {len(chunks)} chunks in {time.time() - t0:.3f}s")
         
-        scored = []
-        for chunk, fdoc in chunks:
-            try:
-                vec = emb.loads(chunk.embedding)
-                score = emb.cosine_similarity(query_vec, vec)
-                scored.append((score, chunk, fdoc))
-            except Exception as e:
-                print(f"Error scoring chunk {chunk.id}: {e}")
+        t1 = time.time()
+        c_list = [c.id for c, f in chunks]
+        matrix = emb.get_vectors_for_chunks(c_list, db)
+        semantic_scores = emb.batch_cosine_similarity(query_vec, matrix)
+        print(f"Computed similarities in {time.time() - t1:.3f}s")
         
-        scored.sort(key=lambda x: x[0], reverse=True)
-        print("Scoring successful.")
-        if scored:
-            print(f"Top score: {scored[0][0]}")
+        if len(semantic_scores) > 0:
+            print(f"Top score: {max(semantic_scores):.4f}")
     except Exception as e:
         print(f"Error: {e}")
     finally:

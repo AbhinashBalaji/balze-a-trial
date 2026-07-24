@@ -8,6 +8,7 @@ backend/app/__pycache__/
 backend/venv/
 backend/.venv/
 *.pyc
+backend/firebase_credentials.json
 
 # Frontend
 frontend/node_modules/

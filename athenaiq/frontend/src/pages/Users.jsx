@@ -15,10 +15,13 @@ export default function Users() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   // Form states
-  const [inviteForm, setInviteForm] = useState({ email: '', full_name: '', role: 'User' })
-  const [createForm, setCreateForm] = useState({ full_name: '', email: '', password: '', role: 'User' })
-  const [editForm, setEditForm] = useState({ id: null, full_name: '', email: '' })
+  const [inviteForm, setInviteForm] = useState({ email: '', full_name: '', role_id: '', department_id: '' })
+  const [createForm, setCreateForm] = useState({ full_name: '', email: '', password: '', role_id: '', department_id: '' })
+  const [editForm, setEditForm] = useState({ id: null, full_name: '', email: '', role_id: '', department_id: '' })
   const [passwordForm, setPasswordForm] = useState({ id: null, password: '' })
+  
+  const [roles, setRoles] = useState([])
+  const [departments, setDepartments] = useState([])
   
   // Feedback
   const [actionLoading, setActionLoading] = useState(false)
@@ -35,8 +38,32 @@ export default function Users() {
     }
   }
 
+  const fetchRolesAndDepartments = async () => {
+    try {
+      const [rolesRes, deptsRes] = await Promise.all([
+        api.get('/rbac/roles'),
+        api.get('/rbac/departments')
+      ])
+      setRoles(rolesRes.data || [])
+      setDepartments(deptsRes.data || [])
+      
+      if (rolesRes.data?.length > 0) {
+        const defaultRole = rolesRes.data.find(r => r.role_name === 'Employee') || rolesRes.data[0];
+        setInviteForm(prev => ({ ...prev, role_id: defaultRole.id }))
+        setCreateForm(prev => ({ ...prev, role_id: defaultRole.id }))
+      }
+      if (deptsRes.data?.length > 0) {
+        setInviteForm(prev => ({ ...prev, department_id: deptsRes.data[0].id }))
+        setCreateForm(prev => ({ ...prev, department_id: deptsRes.data[0].id }))
+      }
+    } catch (err) {
+      console.error('Failed to fetch RBAC data:', err)
+    }
+  }
+
   useEffect(() => {
     fetchUsers()
+    fetchRolesAndDepartments()
   }, [])
 
   const showMessage = (type, text) => {
@@ -49,9 +76,13 @@ export default function Users() {
     if (!inviteForm.email || !inviteForm.full_name) return
     setActionLoading(true)
     try {
-      await api.post('/users/invite', inviteForm)
+      await api.post('/users/invite', {
+        ...inviteForm,
+        role_id: parseInt(inviteForm.role_id),
+        department_id: inviteForm.department_id ? parseInt(inviteForm.department_id) : null
+      })
       showMessage('success', 'Invitation sent successfully!')
-      setInviteForm({ email: '', full_name: '', role: 'User' })
+      setInviteForm({ email: '', full_name: '', role_id: roles[0]?.id || '', department_id: departments[0]?.id || '' })
       setShowInviteModal(false)
       fetchUsers()
     } catch (err) {
@@ -65,9 +96,13 @@ export default function Users() {
     e.preventDefault()
     setActionLoading(true)
     try {
-      await api.post('/users', createForm)
+      await api.post('/users', {
+        ...createForm,
+        role_id: parseInt(createForm.role_id),
+        department_id: createForm.department_id ? parseInt(createForm.department_id) : null
+      })
       showMessage('success', 'User created successfully!')
-      setCreateForm({ full_name: '', email: '', password: '', role: 'User' })
+      setCreateForm({ full_name: '', email: '', password: '', role_id: roles[0]?.id || '', department_id: departments[0]?.id || '' })
       setShowCreateModal(false)
       fetchUsers()
     } catch (err) {
@@ -82,6 +117,9 @@ export default function Users() {
     setActionLoading(true)
     try {
       await api.put(`/users/${editForm.id}`, { full_name: editForm.full_name, email: editForm.email })
+      if (editForm.role_id) {
+        await api.put(`/users/${editForm.id}/role`, { role_id: parseInt(editForm.role_id) })
+      }
       showMessage('success', 'User updated successfully!')
       setShowEditModal(false)
       fetchUsers()
@@ -177,6 +215,7 @@ export default function Users() {
                 <th className="px-6 py-4 font-medium">Name</th>
                 <th className="px-6 py-4 font-medium">Email</th>
                 <th className="px-6 py-4 font-medium">Role</th>
+                <th className="px-6 py-4 font-medium">Department</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium">Joined Date</th>
                 <th className="px-6 py-4 font-medium text-right">Actions</th>
@@ -200,12 +239,13 @@ export default function Users() {
                     <td className="px-6 py-4 text-text-muted">{u.email}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        u.role === 'Admin' ? 'bg-violet/20 text-violet-light border border-violet/30' :
+                        ['Admin', 'Super Admin'].includes(u.role) ? 'bg-violet/20 text-violet-light border border-violet/30' :
                         'bg-white/10 text-text-muted border border-white/20'
                       }`}>
                         {u.role}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-text-muted">{u.department}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${u.status === 'Active' ? 'bg-green-400' : u.status === 'Pending' ? 'bg-yellow-400' : 'bg-red-400'}`}></span>
@@ -217,9 +257,8 @@ export default function Users() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3 text-sm">
-                        <button onClick={() => { setEditForm({ id: u.id, full_name: u.name, email: u.email }); setShowEditModal(true); }} className="text-text-muted hover:text-cyan transition">Edit</button>
+                        <button onClick={() => { setEditForm({ id: u.id, full_name: u.name, email: u.email, role_id: u.role_id, department_id: u.department_id }); setShowEditModal(true); }} className="text-text-muted hover:text-cyan transition">Edit</button>
                         <button onClick={() => toggleStatus(u)} className="text-text-muted hover:text-violet transition">{u.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
-                        <button onClick={() => toggleRole(u)} className="text-text-muted hover:text-violet transition">Make {u.role === 'Admin' ? 'User' : 'Admin'}</button>
                         <button onClick={() => { setPasswordForm({ id: u.id, password: '' }); setShowPasswordModal(true); }} className="text-text-muted hover:text-cyan transition">Password</button>
                         <button onClick={() => deleteUser(u)} className="text-text-muted hover:text-red-400 transition">Delete</button>
                       </div>
@@ -260,12 +299,26 @@ export default function Users() {
             <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Role</label>
               <select 
-                value={inviteForm.role} 
-                onChange={(e) => setInviteForm({...inviteForm, role: e.target.value})} 
+                value={inviteForm.role_id} 
+                onChange={(e) => setInviteForm({...inviteForm, role_id: e.target.value})} 
                 className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition"
               >
-                <option value="User" className="bg-slate-800">User</option>
-                <option value="Admin" className="bg-slate-800">Admin</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id} className="bg-slate-800">{r.role_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Department</label>
+              <select 
+                value={inviteForm.department_id} 
+                onChange={(e) => setInviteForm({...inviteForm, department_id: e.target.value})} 
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition"
+              >
+                <option value="" className="bg-slate-800">None</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id} className="bg-slate-800">{d.department_name}</option>
+                ))}
               </select>
             </div>
             <div className="flex justify-end gap-3 mt-4">
@@ -295,9 +348,19 @@ export default function Users() {
             </div>
             <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Role</label>
-              <select value={createForm.role} onChange={(e) => setCreateForm({...createForm, role: e.target.value})} className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition">
-                <option value="User" className="bg-slate-800">User</option>
-                <option value="Admin" className="bg-slate-800">Admin</option>
+              <select value={createForm.role_id} onChange={(e) => setCreateForm({...createForm, role_id: e.target.value})} className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition">
+                {roles.map(r => (
+                  <option key={r.id} value={r.id} className="bg-slate-800">{r.role_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Department</label>
+              <select value={createForm.department_id} onChange={(e) => setCreateForm({...createForm, department_id: e.target.value})} className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition">
+                <option value="" className="bg-slate-800">None</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id} className="bg-slate-800">{d.department_name}</option>
+                ))}
               </select>
             </div>
             <div className="flex justify-end gap-3 mt-4">
@@ -320,6 +383,15 @@ export default function Users() {
             <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Email Address</label>
               <input type="email" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Role</label>
+              <select value={editForm.role_id || ''} onChange={(e) => setEditForm({...editForm, role_id: e.target.value})} className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary focus:outline-none focus:border-violet transition">
+                <option value="" className="bg-slate-800">Select Role</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id} className="bg-slate-800">{r.role_name}</option>
+                ))}
+              </select>
             </div>
             <div className="flex justify-end gap-3 mt-4">
               <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-lg text-sm text-text-muted hover:text-text-primary transition">Cancel</button>

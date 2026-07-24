@@ -50,18 +50,35 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right: SIGN IN / OUT */}
-        <div className="hidden lg:flex items-center gap-3">
+        {/* Right: User Profile & SIGN IN / OUT */}
+        <div className="hidden lg:flex items-center gap-4">
           {user ? (
-            <button
-              onClick={() => {
-                logout()
-                navigate('/')
-              }}
-              className="font-mono-strict text-xs text-[#FACC15] hover:text-white transition-colors tracking-widest font-bold"
-            >
-              SIGN OUT
-            </button>
+            <>
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(139,92,246,0.15)] transition-all hover:bg-white/10 hover:shadow-[0_0_20px_rgba(139,92,246,0.25)]">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet to-cyan flex items-center justify-center shadow-inner">
+                  <span className="font-bold text-ink text-sm">
+                    {(user.full_name || user.email || '?').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex flex-col pr-2">
+                  <span className="text-sm font-medium text-text-primary leading-tight">
+                    {user.full_name || user.email.split('@')[0]}
+                  </span>
+                  <span className="text-[10px] text-text-muted font-mono-strict tracking-wider uppercase">
+                    {user.role || (user.roles?.length > 0 ? user.roles[0].role.role_name : 'User')}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  logout()
+                  navigate('/')
+                }}
+                className="font-mono-strict text-xs text-[#FACC15] hover:text-white transition-colors tracking-widest font-bold ml-2"
+              >
+                SIGN OUT
+              </button>
+            </>
           ) : (
             <Link
               to="/login"

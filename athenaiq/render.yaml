@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: athenaiq-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: athenaiq-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: FIREBASE_API_KEY
+        sync: false
+      # Note: add SMTP configuration manually in Render dashboard if needed
+
+databases:
+  - name: athenaiq-db
+    databaseName: athenaiq
+    user: athenaiq_user

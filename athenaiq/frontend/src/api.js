@@ -1,12 +1,13 @@
 import axios from 'axios'
 
-export const API_BASE = 'http://localhost:8000'
+export const API_BASE = `http://${window.location.hostname}:8000`
 
 const api = axios.create({ baseURL: API_BASE })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('athenaiq_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
+  config.headers['Bypass-Tunnel-Reminder'] = 'true'
   return config
 })
 

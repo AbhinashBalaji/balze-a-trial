@@ -55,7 +55,7 @@ export default function ShareModal({ fileId, onClose }) {
 
   const handleUpdate = async (shareId, newPerm) => {
     try {
-      await api.put(`/files/shares/${shareId}`, { permission: newPerm })
+      await api.put(`/files/${fileId}/shares/${shareId}`, { permission: newPerm })
       loadData()
     } catch (err) {
       alert('Failed to update permission')
@@ -63,8 +63,9 @@ export default function ShareModal({ fileId, onClose }) {
   }
 
   const handleRevoke = async (shareId) => {
+    if (!window.confirm('Revoke this user\'s access?')) return
     try {
-      await api.delete(`/files/shares/${shareId}`)
+      await api.delete(`/files/${fileId}/shares/${shareId}`)
       loadData()
     } catch (err) {
       alert('Failed to revoke access')
