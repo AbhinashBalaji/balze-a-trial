@@ -1,0 +1,17 @@
+# Backend
+backend/.env
+backend/athenaiq.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/__pycache__/
+backend/app/__pycache__/
+backend/venv/
+backend/.venv/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store

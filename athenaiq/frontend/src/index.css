@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background-color: #000000;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: #FFFFFF;
+  font-family: 'Space Mono', monospace; /* Default to monospace for this template */
+  overflow-x: hidden;
+}
+
+/* Typography Classes */
+.font-serif-elegant {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-mono-strict {
+  font-family: 'Space Mono', monospace;
+}
+
+::selection {
+  background: rgba(250, 204, 21, 0.4); /* Yellow-400 */
+  color: #fff;
+}
+
+/* Glass navigation - pure black fade */
+.glass-nav {
+  background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Yellow Accent Glow */
+.text-glow-yellow {
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+}
+
+/* Angled Button (Cyberpunk style) */
+.angled-button {
+  position: relative;
+  background: transparent;
+  border: 1px solid #FACC15;
+  color: #FACC15;
+  padding: 12px 32px;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+  /* A glowing inner box shadow */
+  box-shadow: inset 0 0 15px rgba(250, 204, 21, 0.2);
+}
+
+.angled-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #FACC15;
+  opacity: 0.1;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.angled-button:hover {
+  box-shadow: inset 0 0 25px rgba(250, 204, 21, 0.4), 0 0 15px rgba(250, 204, 21, 0.3);
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.8);
+}
+
+.angled-button:hover::before {
+  opacity: 0.2;
+}
+
+/* Thin custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+::-webkit-scrollbar-thumb:hover { background: #FACC15; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+#webgl {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+}
+
+#webgl canvas {
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,47 @@
+# Send Email Invitation for "Invite User" Button
+
+This task adds functionality to send an email invitation when an Admin clicks the "Invite User" button on the Users page.
+
+## User Review Required
+
+> [!WARNING]
+> We need to decide how to handle email sending. The backend currently has no mailer configured. I propose using Python's standard `smtplib` and `email.message` for sending SMTP emails, which avoids introducing external dependencies.
+> 
+> Also, currently the "Users" list returns mock data. Should the invite flow create a real user record with a "Pending" status in the database, or just send an email? (I propose creating a Pending user in the DB so it shows up in the Users list, if the Users list is updated to fetch from DB).
+
+## Open Questions
+
+> [!IMPORTANT]
+> - What SMTP provider would you like to use for sending emails? (e.g., Gmail, SendGrid, Amazon SES)
+> - Please confirm if you want me to add the necessary `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, and `SMTP_PASSWORD` environment variables to `.env.example`.
+> - Do you want the Users list on the frontend to fetch real data from the database instead of the mock data? 
+
+## Proposed Changes
+
+### Backend
+
+#### [MODIFY] [users.py](file:///d:/athenaiq/athenaiq/backend/app/routers/users.py)
+- Add a new `POST /invite` endpoint.
+- Accept an email payload via a Pydantic model (`InviteRequest`).
+- Require Admin privileges.
+
+#### [NEW] [email_utils.py](file:///d:/athenaiq/athenaiq/backend/app/email_utils.py)
+- Create a utility file for the email sending logic (e.g., `send_invitation_email(recipient: str)`).
+- Load SMTP configs from environment variables and use `smtplib.SMTP` or `smtplib.SMTP_SSL` to send the email.
+
+### Frontend
+
+#### [MODIFY] [Users.jsx](file:///d:/athenaiq/athenaiq/frontend/src/pages/Users.jsx)
+- Import and use the existing `<Modal>` component.
+- Add state for `showInviteModal`, `inviteEmail`, and `isInviting`.
+- Wire the "Invite User" button to open the modal.
+- In the modal, provide an input field for the user's email address and a submit button.
+- Make an API call to `POST /users/invite` and display a success/error message.
+
+## Verification Plan
+
+### Manual Verification
+1. I will ask you to configure real SMTP credentials or start a local SMTP testing server.
+2. I will log in as an Admin, click "Invite User", and enter an email address.
+3. I will verify that the backend successfully sends the email without errors.
+4. I will verify the modal closes and a success message is displayed on the UI.

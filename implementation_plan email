@@ -1,0 +1,42 @@
+# Admin Users Management Page
+
+We will implement an Admin-only "Users" management page in AthenaIQ.
+
+## Proposed Changes
+
+### Backend
+
+1. **Database and Models**
+   - We will add a `role` column to the `users` table. 
+   - We will run an SQLite `ALTER TABLE` command to add this column to existing databases without losing data.
+   - We will update `app/models.py` to include `role = Column(String, default="Employee")`.
+   - We will update `app/schemas.py` to expose the `role` in `UserOut`.
+
+2. **API Endpoint**
+   - We will create a new router in `app/routers/users.py`.
+   - Implement `GET /users` which checks if the current user is an Admin.
+   - Return mock data for the users list as requested (containing Name, Email, Role, Status, Joined Date).
+   - Update `app/main.py` to include the new `users` router.
+
+### Frontend
+
+1. **Routing and State**
+   - Update `App.jsx` to include a new route for `/users`.
+   - Add a custom check in `App.jsx` or a wrapper component to ensure only users with `role === 'Admin'` can access the route.
+
+2. **Navbar**
+   - Update `src/components/Navbar.jsx` to conditionally render the "Users" link only if `user?.role === 'Admin'`.
+
+3. **Users Page UI**
+   - Create `src/pages/Users.jsx`.
+   - Use the existing AthenaIQ UI components and styling (glassmorphism, gradients, dark theme).
+   - Implement the "Users" page title, "Invite User" button, and a table displaying the user data (Name, Email, Role, Status, Joined Date).
+   - Fetch data from the `GET /users` endpoint and render it.
+
+## Verification Plan
+
+- Start the backend and frontend servers.
+- Manually upgrade a test user's role to 'Admin' using SQLite.
+- Log in and verify the "Users" nav link appears.
+- Navigate to the Users page and verify the mock data is displayed in a beautifully styled table.
+- Log in as a non-Admin and verify the "Users" link is hidden and the route is inaccessible.
