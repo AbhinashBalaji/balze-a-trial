@@ -129,6 +129,10 @@ class FileOut(BaseModel):
         from_attributes = True
 
 
+class FileEditContent(BaseModel):
+    text_content: str
+
+
 class FileShareCreate(BaseModel):
     user_id: int
     permission: str

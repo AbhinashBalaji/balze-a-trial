@@ -49,7 +49,7 @@ def seed_rbac():
     
     # Seed Permissions
     perms = [
-        "view_all_documents", "upload_documents", "delete_documents", 
+        "view_all_documents", "upload_documents", "edit_documents", "delete_documents", 
         "manage_users", "manage_roles", "manage_departments", 
         "view_analytics", "view_audit_logs", "system_settings",
         "search_hr", "search_finance", "search_legal", "search_department"
@@ -63,11 +63,11 @@ def seed_rbac():
     # Define Roles and their Permissions
     role_defs = {
         "Super Admin": perms, # All permissions
-        "Admin": ["upload_documents", "manage_departments", "view_analytics", "view_all_documents", "manage_users"],
+        "Admin": ["upload_documents", "edit_documents", "manage_departments", "view_analytics", "view_all_documents", "manage_users"],
         "HR": ["upload_documents", "search_hr", "search_department"],
         "Finance": ["upload_documents", "search_finance", "search_department"],
         "Legal": ["upload_documents", "search_legal", "search_department"],
-        "Manager": ["upload_documents", "search_department"],
+        "Manager": ["upload_documents", "edit_documents", "search_department"],
         "Employee": ["search_department"],
         "Guest": []
     }

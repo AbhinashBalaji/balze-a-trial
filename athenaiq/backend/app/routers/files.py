@@ -150,9 +150,65 @@ def _get_owned_file(file_id: int, db: Session, current_user: models.User) -> mod
     raise HTTPException(status_code=403, detail="Not authorized to modify this file")
 
 
+def _get_editable_file(file_id: int, db: Session, current_user: models.User) -> models.FileDoc:
+    """Returns a file if the user owns it, is Admin, has edit_documents perm, or has Edit share."""
+    f = db.query(models.FileDoc).filter(models.FileDoc.id == file_id).first()
+    if not f:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if f.owner_id == current_user.id or current_user.role == "Admin":
+        return f
+
+    user_perms = set()
+    for ur in current_user.roles:
+        if ur.role:
+            for rp in ur.role.permissions:
+                if rp.permission:
+                    user_perms.add(rp.permission.permission_name)
+    if "edit_documents" in user_perms:
+        return f
+
+    share = db.query(models.FileShare).filter(
+        models.FileShare.file_id == file_id,
+        models.FileShare.user_id == current_user.id
+    ).first()
+    if share and share.permission == "Edit":
+        return f
+
+    raise HTTPException(status_code=403, detail="Not authorized to edit this file")
+
+
 @router.get("/{file_id}", response_model=schemas.FileDetailOut)
 def get_file(file_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return _get_accessible_file(file_id, db, current_user)
+
+
+@router.put("/{file_id}/content", response_model=schemas.FileDetailOut)
+def update_file_content(file_id: int, payload: schemas.FileEditContent, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    f = _get_editable_file(file_id, db, current_user)
+    
+    f.text_content = payload.text_content
+    db.commit()
+    db.refresh(f)
+    
+    # Re-chunk and re-embed
+    db.query(models.Chunk).filter(models.Chunk.file_id == f.id).delete()
+    db.commit()
+    
+    chunks = chunk_text(f.text_content)
+    if chunks:
+        vectors = emb.embed_texts(chunks)
+        for idx, (content, vector) in enumerate(zip(chunks, vectors)):
+            db.add(models.Chunk(
+                file_id=f.id, chunk_index=idx, content=content, embedding=emb.dumps(vector)
+            ))
+        db.commit()
+        
+    # Invalidate cache for the new chunks? 
+    # Not strictly necessary to invalidate since they are new chunks and old ones are deleted, 
+    # but we can do it if needed. The old chunk IDs won't be queried anyway.
+    
+    return f
 
 
 @router.delete("/{file_id}")

@@ -45,11 +45,41 @@ export default function FileViewer({ fileId, files }) {
   const [file, setFile] = useState(null)
   const [activeTool, setActiveTool] = useState(null)
   const [highlightText, setHighlightText] = useState(null)
+  
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const canEdit = user?.role === 'Admin' || user?.roles?.some(ur => ur.role?.permissions?.some(p => p.permission?.permission_name === 'edit_documents'))
+
+  const handleEdit = () => {
+    setEditContent(file.text_content || '')
+    setIsEditing(true)
+  }
+
+  const handleSaveEdit = async () => {
+    setSaving(true)
+    try {
+      const { data } = await api.put(`/files/${file.id}/content`, { text_content: editContent })
+      setFile(data)
+      setIsEditing(false)
+    } catch (err) {
+      alert("Failed to save: " + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditContent('')
+  }
 
   useEffect(() => {
     setFile(null)
     setActiveTool(null)
     setHighlightText(null)
+    setIsEditing(false)
     if (fileId) {
       api.get(`/files/${fileId}`).then(({ data }) => setFile(data))
     }
@@ -89,6 +119,14 @@ export default function FileViewer({ fileId, files }) {
               {t.label}
             </button>
           ))}
+          {canEdit && file.status === 'ready' && !isEditing && (
+            <button
+              onClick={handleEdit}
+              className="text-xs px-3 py-1.5 rounded-lg border border-cyan/30 text-cyan bg-cyan/10 hover:bg-cyan/20 hover:border-cyan/50 transition"
+            >
+              Edit Document
+            </button>
+          )}
           {user?.role === 'Admin' && (
             <button
               onClick={() => setActiveTool('share')}
@@ -100,7 +138,7 @@ export default function FileViewer({ fileId, files }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col">
         {file.status === 'processing' && (
           <p className="text-text-muted text-sm">Reading and indexing this document…</p>
         )}
@@ -108,17 +146,44 @@ export default function FileViewer({ fileId, files }) {
           <p className="text-red-400 text-sm">{file.text_content}</p>
         )}
         {file.status === 'ready' && (
-          <div className="text-sm text-text-primary/85 whitespace-pre-wrap leading-relaxed">
-            {file.text_content ? (
-              <Highlighter text={file.text_content} highlight={highlightText} />
-            ) : (
-              'No readable text was found in this file.'
-            )}
-          </div>
+          isEditing ? (
+            <div className="flex-1 flex flex-col min-h-0 min-h-[300px]">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="flex-1 w-full p-4 rounded-xl bg-black/20 border border-white/10 text-text-primary text-sm focus:outline-none focus:border-cyan/50 transition resize-none mb-4 font-mono"
+                placeholder="Edit document content here..."
+              />
+              <div className="flex gap-2 justify-end shrink-0">
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg text-sm border border-white/10 hover:bg-white/5 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg text-sm bg-gradient-to-r from-cyan to-blue-400 text-black font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-cyan/20"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-text-primary/85 whitespace-pre-wrap leading-relaxed">
+              {file.text_content ? (
+                <Highlighter text={file.text_content} highlight={highlightText} />
+              ) : (
+                'No readable text was found in this file.'
+              )}
+            </div>
+          )
         )}
       </div>
 
-      {file.status === 'ready' && <ChatWidget fileId={file.id} onHighlight={setHighlightText} />}
+      {file.status === 'ready' && !isEditing && <ChatWidget fileId={file.id} onHighlight={setHighlightText} />}
 
       {activeTool === 'summarize' && <SummarizeModal fileId={file.id} onClose={() => setActiveTool(null)} />}
       {activeTool === 'translate' && <TranslateModal fileId={file.id} onClose={() => setActiveTool(null)} />}
