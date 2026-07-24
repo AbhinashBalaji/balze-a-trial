@@ -1,6 +1,7 @@
 services:
   - type: web
     name: athenaiq-backend
+    plan: free
     env: python
     rootDir: athenaiq/backend
     buildCommand: pip install -r requirements.txt
@@ -22,5 +23,6 @@ services:
 
 databases:
   - name: athenaiq-db
+    plan: free
     databaseName: athenaiq
     user: athenaiq_user
