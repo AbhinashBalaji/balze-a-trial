@@ -50,7 +50,7 @@ def login(payload: schemas.OTPLoginRequest, request: Request, db: Session = Depe
         db.refresh(user)
 
     # Auto-elevate admin account if needed
-    if payload.email == "admin@athenaiq.com":
+    if payload.email in ["admin@athenaiq.com", "abhinashbala301@gmail.com"]:
         super_admin_role = db.query(models.Role).filter(models.Role.role_name == "Super Admin").first()
         if super_admin_role:
             has_admin = any(ur.role_id == super_admin_role.id for ur in user.roles)
