@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 import requests
 import datetime
@@ -11,6 +11,7 @@ from app import models, schemas
 from app.auth import get_current_user
 from app.config import settings
 from app.email_utils import send_otp_email
+from app.audit import log_audit_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,7 +19,7 @@ def _hash_otp(otp: str) -> str:
     return hashlib.sha256(otp.encode()).hexdigest()
 
 @router.post("/login")
-def login(payload: schemas.OTPLoginRequest, db: Session = Depends(get_db)):
+def login(payload: schemas.OTPLoginRequest, request: Request, db: Session = Depends(get_db)):
     if not settings.firebase_api_key:
         raise HTTPException(status_code=500, detail="Firebase API Key is not configured on the backend.")
 
@@ -32,6 +33,7 @@ def login(payload: schemas.OTPLoginRequest, db: Session = Depends(get_db)):
 
     if resp.status_code != 200:
         error_msg = resp.json().get("error", {}).get("message", "Invalid credentials")
+        log_audit_event(db, "User Login", "Authentication", "Failed", email=payload.email, description=error_msg, request=request)
         raise HTTPException(status_code=401, detail=error_msg)
     
     # 2. Get user by email in our DB
@@ -76,7 +78,7 @@ def login(payload: schemas.OTPLoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/verify-otp")
-def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db)):
+def verify_otp(payload: schemas.VerifyOTPRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -98,6 +100,7 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     if verification.otp_hash != _hash_otp(payload.otp):
         verification.attempts_remaining -= 1
         db.commit()
+        log_audit_event(db, "OTP Verification", "Authentication", "Failed", user=user, description="Invalid OTP", request=request)
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
     # OTP is valid
@@ -111,6 +114,7 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Firebase Error: {str(e)}")
 
+    log_audit_event(db, "User Login", "Authentication", "Success", user=user, description="Logged in via OTP", request=request)
     return {"token": custom_token}
 
 

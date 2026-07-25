@@ -11,6 +11,7 @@ import About from './pages/About.jsx'
 import Users from './pages/Users.jsx'
 import AcceptInvite from './pages/AcceptInvite.jsx'
 import ForceChangePassword from './pages/ForceChangePassword.jsx'
+import AuditLogs from './pages/AuditLogs.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { GL } from './components/gl/index.tsx'
 
@@ -75,6 +76,14 @@ export default function App() {
             element={
               <AdminRoute>
                 <Users />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <AdminRoute>
+                <AuditLogs />
               </AdminRoute>
             }
           />

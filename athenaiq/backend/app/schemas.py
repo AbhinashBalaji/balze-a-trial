@@ -226,3 +226,48 @@ class CompareResponse(BaseModel):
     similarities: str
     differences: str
     verdict: str
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    action: str
+    module: Optional[str] = None
+    description: Optional[str] = None
+    document_name: Optional[str] = None
+    document_id: Optional[int] = None
+    status: str
+    ip_address: Optional[str] = None
+    browser: Optional[str] = None
+    operating_system: Optional[str] = None
+    device_type: Optional[str] = None
+    request_method: Optional[str] = None
+    api_endpoint: Optional[str] = None
+    timestamp: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SecurityAlertOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    alert_type: str
+    description: str
+    severity: str
+    is_resolved: bool
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedAuditLogs(BaseModel):
+    items: List[AuditLogOut]
+    total: int
+    page: int
+    size: int
+    pages: int

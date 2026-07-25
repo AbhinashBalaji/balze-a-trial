@@ -35,7 +35,7 @@ export default function Navbar() {
 
         {/* Center: ORIGINAL Links, Skal styling */}
         <div className="hidden lg:flex items-center gap-8">
-          {[...LINKS, ...(user?.role === 'Admin' ? [{ to: '/users', label: 'USERS' }] : [])].map((l) => (
+          {[...LINKS, ...(user?.role === 'Admin' ? [{ to: '/users', label: 'USERS' }, { to: '/audit-logs', label: 'AUDIT LOGS' }] : [])].map((l) => (
             <Link
               key={l.to}
               to={l.to}
@@ -104,7 +104,7 @@ export default function Navbar() {
       {/* Mobile Menu Dropdown */}
       {open && (
         <div className="absolute top-24 w-[calc(100%-2rem)] max-w-7xl glass-nav rounded-xl p-4 lg:hidden flex flex-col gap-4">
-          {[...LINKS, ...(user?.role === 'Admin' ? [{ to: '/users', label: 'USERS' }] : [])].map((l) => (
+          {[...LINKS, ...(user?.role === 'Admin' ? [{ to: '/users', label: 'USERS' }, { to: '/audit-logs', label: 'AUDIT LOGS' }] : [])].map((l) => (
             <Link
               key={l.to}
               to={l.to}

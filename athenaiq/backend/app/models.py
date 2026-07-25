@@ -137,11 +137,39 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    username = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    role = Column(String, nullable=True)
+    department = Column(String, nullable=True)
     action = Column(String, nullable=False, index=True)
-    details = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    module = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    document_name = Column(String, nullable=True)
+    document_id = Column(Integer, nullable=True)
+    status = Column(String, default="Success")
+    ip_address = Column(String, nullable=True)
+    browser = Column(String, nullable=True)
+    operating_system = Column(String, nullable=True)
+    device_type = Column(String, nullable=True)
+    request_method = Column(String, nullable=True)
+    api_endpoint = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+class SecurityAlert(Base):
+    __tablename__ = "security_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    alert_type = Column(String, nullable=False) # e.g. "Mass Deletion", "Failed Logins"
+    description = Column(String, nullable=False)
+    severity = Column(String, default="High")
+    is_resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User")
 
 
 class SearchLog(Base):

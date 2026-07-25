@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../api'
+import { useAuth } from '../AuthContext.jsx'
 
 export default function Dashboard() {
   const [files, setFiles] = useState([])
   const [selected, setSelected] = useState(null)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  const [adminStats, setAdminStats] = useState(null)
+  const [alerts, setAlerts] = useState([])
 
   useEffect(() => {
     api.get('/files/').then(({ data }) => {
@@ -15,7 +19,12 @@ export default function Dashboard() {
       setLoading(false)
       if (data.length) selectFile(data[0].id)
     })
-  }, [])
+    
+    if (user?.role === 'Admin' || user?.role === 'Super Admin') {
+      api.get('/audit/stats').then(({ data }) => setAdminStats(data)).catch(console.error)
+      api.get('/audit/alerts').then(({ data }) => setAlerts(data)).catch(console.error)
+    }
+  }, [user])
 
   async function selectFile(id) {
     setSelected(id)
@@ -57,6 +66,40 @@ export default function Dashboard() {
         <StatCard label="Ready" value={files.filter((f) => f.status === 'ready').length} />
         <StatCard label="Processing" value={files.filter((f) => f.status === 'processing').length} />
       </motion.div>
+
+      {/* Admin Audit Stats */}
+      {adminStats && (
+        <motion.div variants={itemVariants} className="mt-10">
+          <h2 className="text-xl font-display font-semibold text-white mb-4">Enterprise Activity (Today)</h2>
+          <div className="grid sm:grid-cols-4 gap-5">
+            <StatCard label="Logins" value={adminStats.logins_today} />
+            <StatCard label="Failed Logins" value={adminStats.failed_logins} highlight={adminStats.failed_logins > 0} />
+            <StatCard label="Uploads" value={adminStats.uploads_today} />
+            <StatCard label="AI Searches" value={adminStats.searches_today} />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Security Alerts */}
+      {alerts.length > 0 && (
+        <motion.div variants={itemVariants} className="mt-10 glass-panel border border-red-500/30 p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>
+            <h2 className="text-xl font-display font-bold text-red-400">Security Alerts</h2>
+          </div>
+          <div className="space-y-3">
+            {alerts.map(alert => (
+              <div key={alert.id} className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="text-white font-bold">{alert.alert_type}</h3>
+                  <p className="text-sm text-gray-400">{alert.description}</p>
+                </div>
+                <span className="text-xs text-text-muted">{new Date(alert.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid md:grid-cols-[300px_1fr] gap-6 mt-10">
         {/* File list */}
@@ -124,10 +167,10 @@ export default function Dashboard() {
   )
 }
 
-function StatCard({ label, value }) {
+function StatCard({ label, value, highlight }) {
   return (
-    <div className="glass-panel rounded-2xl p-6 border border-white/10 hover:border-[#7C6FFF]/40 transition-colors">
-      <div className="text-4xl font-display font-bold text-white mb-2">{value}</div>
+    <div className={`glass-panel rounded-2xl p-6 border transition-colors ${highlight ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 hover:border-[#7C6FFF]/40'}`}>
+      <div className={`text-4xl font-display font-bold mb-2 ${highlight ? 'text-red-400' : 'text-white'}`}>{value}</div>
       <div className="text-gray-400 text-sm tracking-wide uppercase">{label}</div>
     </div>
   )
