@@ -49,6 +49,15 @@ def login(payload: schemas.OTPLoginRequest, request: Request, db: Session = Depe
         db.commit()
         db.refresh(user)
 
+    # Auto-elevate admin account if needed
+    if payload.email == "admin@athenaiq.com":
+        super_admin_role = db.query(models.Role).filter(models.Role.role_name == "Super Admin").first()
+        if super_admin_role:
+            has_admin = any(ur.role_id == super_admin_role.id for ur in user.roles)
+            if not has_admin:
+                db.add(models.UserRole(user_id=user.id, role_id=super_admin_role.id))
+                db.commit()
+
     # 3. Generate OTP
     otp = str(secrets.randbelow(1000000)).zfill(6)
     otp_hash = _hash_otp(otp)
