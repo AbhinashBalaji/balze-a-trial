@@ -46,12 +46,13 @@ def get_current_user(
         
     # Auto-elevate admin account if needed
     if email in ["admin@athenaiq.com", "abhinashbala301@gmail.com"]:
+        user.role = "Admin"
         super_admin_role = db.query(models.Role).filter(models.Role.role_name == "Super Admin").first()
         if super_admin_role:
             has_admin = any(ur.role_id == super_admin_role.id for ur in user.roles)
             if not has_admin:
                 db.add(models.UserRole(user_id=user.id, role_id=super_admin_role.id))
-                db.commit()
+        db.commit()
 
     return user
 
